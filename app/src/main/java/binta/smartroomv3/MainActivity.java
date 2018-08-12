@@ -5,8 +5,10 @@ import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -30,13 +32,17 @@ public class MainActivity extends AppCompatActivity {
 
     private BluetoothAdapter btAdapter = null;
     private BluetoothSocket btSocket = null;
+    private BluetoothConnector btConnector = new BluetoothConnector();
     private static final int REQUEST_ENABLE_BT = 1;
     private static final UUID myUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private String DEFAULT_DEVICE_ADDRESS = "00:21:13:00:17:49";
     private ProgressDialog progress;
     private boolean isConnected = false;
-    private String deviceAddress;
+    private String deviceAddress = null;
     private ImageView imageView_on;
     private ImageView imageView_off;
+    SharedPreferences preferences;
+    SharedPreferences.Editor editor;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -56,12 +62,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        preferences = getSharedPreferences("DEV_ADDR", Context.MODE_PRIVATE);
+        editor = preferences.edit();
+
         // setup bluetooth connection
         btAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (btAdapter == null) {
             // show a message that the device has no bluetooth adapter
-            Toast.makeText(this, "Device doesn't support Bluetooth", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Device doesn't support Bluetooth", Toast.LENGTH_SHORT).show();
             // stop the application
             finish();
         } else {
@@ -93,20 +102,36 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!isConnected) {
+            if (preferences.contains("deviceAddress")) {
+                deviceAddress = preferences.getString("deviceAddress", DEFAULT_DEVICE_ADDRESS);
+                btConnector.execute();
+            }
+        }
+    }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        try {
+            btSocket.close();
+            Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
 
-
+        }
     }
 
     private class BluetoothConnector extends AsyncTask<Void, Void, Void> {
 
         private boolean connectSuccess = true;
-
         @Override
         protected void onPreExecute() {
             // show a progress dialog
-            progress = ProgressDialog.show(MainActivity.this, "Connecting...", "Please wait");
+            progress = ProgressDialog.show(MainActivity.this, "Connecting", "Please wait...");
         }
-
         @Override
         protected Void doInBackground(Void... devices) {
             try {
@@ -132,14 +157,13 @@ public class MainActivity extends AppCompatActivity {
             }
             return null;
         }
-
         @Override
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
             if (!connectSuccess) {
-                Toast.makeText(getApplicationContext(), "Connection failed", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Connection failed", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(getApplicationContext(), "Connected", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Connected", Toast.LENGTH_SHORT).show();
                 isConnected = true;
             }
             progress.dismiss();
@@ -160,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
                 i++;
             }
         } else {
-            Toast.makeText(getApplicationContext(), "No paired Bluetooth devices found", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "No paired Bluetooth devices found", Toast.LENGTH_SHORT).show();
         }
 
 
@@ -173,7 +197,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 deviceAddress = deviceAddressList[which];
-                new BluetoothConnector().execute();
+                editor.putString("deviceAddress", deviceAddress);
+                editor.commit();
+                btConnector.execute();
             }
         });
 
@@ -186,15 +212,14 @@ public class MainActivity extends AppCompatActivity {
         if (btSocket != null) {
             try {
                 btSocket.getOutputStream().write("h".toString().getBytes());
-                Toast.makeText(getApplicationContext(), "Lights ON", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Lights ON", Toast.LENGTH_SHORT).show();
                 imageView_on.setVisibility(View.VISIBLE);
                 imageView_off.setVisibility(View.INVISIBLE);
             } catch (IOException e) {
-                Toast.makeText(getApplicationContext(), "Error", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Connection error", Toast.LENGTH_SHORT).show();
             }
         } else {
-            Toast.makeText(getApplicationContext(), "Check connection", Toast.LENGTH_LONG).show();
-            showPairedDevicesList();
+            Toast.makeText(getApplicationContext(), "Check connection", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -202,15 +227,14 @@ public class MainActivity extends AppCompatActivity {
         if (btSocket != null) {
             try {
                 btSocket.getOutputStream().write("l".toString().getBytes());
-                Toast.makeText(getApplicationContext(), "Lights OFF", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Lights OFF", Toast.LENGTH_SHORT).show();
                 imageView_on.setVisibility(View.INVISIBLE);
                 imageView_off.setVisibility(View.VISIBLE);
             } catch (IOException e) {
-                Toast.makeText(getApplicationContext(), "Error", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Connection error", Toast.LENGTH_SHORT).show();
             }
         } else {
-            Toast.makeText(getApplicationContext(), "Check connection", Toast.LENGTH_LONG).show();
-            showPairedDevicesList();
+            Toast.makeText(getApplicationContext(), "Check connection", Toast.LENGTH_SHORT).show();
         }
     }
 
