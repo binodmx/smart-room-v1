@@ -109,7 +109,9 @@ public class MainActivity extends AppCompatActivity {
         if (!isConnected) {
             if (preferences.contains("deviceAddress")) {
                 deviceAddress = preferences.getString("deviceAddress", DEFAULT_DEVICE_ADDRESS);
-                btConnector.execute();
+                if (btAdapter.isEnabled()) {
+                    btConnector.execute();
+                }
             }
         }
     }
@@ -117,8 +119,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         try {
-            btSocket.close();
-            Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+            if (isConnected){
+                btSocket.close();
+                Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+            }
         } catch (IOException e) {
 
         }
